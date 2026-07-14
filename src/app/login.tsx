@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { isSupabaseConfigured } from "../lib/supabase";
 import { signIn } from "../services/auth";
 
 export default function LoginScreen() {
@@ -11,6 +12,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   async function login() {
+    if (!isSupabaseConfigured) {
+      Alert.alert("Yapılandırma Eksik", "Sunucu bağlantısı bu derlemede tanımlanmamış. Lütfen yöneticinizle iletişime geçin.");
+      return;
+    }
+
     if (!email.trim() || !password) {
       Alert.alert("Bilgi eksik", "Bakanlık personel e-postası ve kurumsal şifrenizi girin.");
       return;
