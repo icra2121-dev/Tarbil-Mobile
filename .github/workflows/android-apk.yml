@@ -1,0 +1,68 @@
+name: Android APK Oluştur
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    name: KOBUDS Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Projeyi indir
+        uses: actions/checkout@v4
+
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Java 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: NPM paketlerini kur
+        run: npm ci
+
+      - name: Ortam değişkenlerini oluştur
+        run: |
+          echo "EXPO_PUBLIC_CBS_API_KEY=${{ secrets.EXPO_PUBLIC_CBS_API_KEY }}" >> .env
+          echo "EXPO_PUBLIC_CBS_API_URL=${{ secrets.EXPO_PUBLIC_CBS_API_URL }}" >> .env
+          echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> .env
+          echo "EXPO_PUBLIC_KOBUKS_API_KEY=${{ secrets.EXPO_PUBLIC_KOBUKS_API_KEY }}" >> .env
+          echo "EXPO_PUBLIC_KOBUKS_API_URL=${{ secrets.EXPO_PUBLIC_KOBUKS_API_URL }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+
+      - name: Gradle çalıştırma izni ver
+        run: chmod +x android/gradlew
+
+      - name: Eski Android çıktısını temizle
+        working-directory: android
+        run: ./gradlew clean
+
+      - name: Release APK oluştur
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: APK dosyasını yeniden adlandır
+        run: |
+          mkdir -p apk-output
+          cp android/app/build/outputs/apk/release/app-release.apk \
+             apk-output/KOBUDS-v4.0.2.apk
+
+      - name: APK dosyasını GitHub'a yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: KOBUDS-v4.0.2-APK
+          path: apk-output/KOBUDS-v4.0.2.apk
+          retention-days: 30
+          if-no-files-found: error

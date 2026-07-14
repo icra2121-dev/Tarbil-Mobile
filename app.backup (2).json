@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "TARBIL AI",
+    "slug": "tarbil-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.tarbil.ai",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      "expo-location",
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "932d5a9a-9a20-4bcf-98e0-f999cf3a2e4b"
+      }
+    }
+  }
+}

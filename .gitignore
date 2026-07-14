@@ -1,0 +1,43 @@
+﻿# Dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Android build files
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.dex
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/build/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+
+# Temporary and inspection folders
+.apk-inspect-v23/
+.codex-docx-render/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System files
+.DS_Store
+Thumbs.db
