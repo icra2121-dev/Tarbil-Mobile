@@ -5,6 +5,7 @@ from "@react-native-async-storage/async-storage";
 
 import {
   createClient,
+  type SupabaseClient,
 } from "@supabase/supabase-js";
 
 const supabaseUrl =
@@ -16,8 +17,7 @@ const supabaseAnonKey =
 export const isSupabaseConfigured =
   supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const supabase: ReturnType<typeof createClient> = isSupabaseConfigured
+export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(
       supabaseUrl,
       supabaseAnonKey,
@@ -30,4 +30,4 @@ export const supabase: ReturnType<typeof createClient> = isSupabaseConfigured
         },
       }
     )
-  : (null as any);
+  : null;
