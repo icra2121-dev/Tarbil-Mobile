@@ -1,3 +1,0 @@
-﻿EXPO_PUBLIC_SUPABASE_URL=https://https://uzpxzzoapdubiombsivs.supabase.co
-
-EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Kr4WM1DeI8vB8rnkCw7BJg_ojHc--lF
