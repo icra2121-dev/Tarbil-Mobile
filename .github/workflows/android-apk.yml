@@ -67,11 +67,12 @@ jobs:
       - name: APK dosyasını köke al
         id: prepare
         run: |
-          APK_NAME="KOBUDS-v5.2.1.apk"
+          VERSION="$(node -p "require('./app.json').expo.version")"
+          APK_NAME="KOBUDS-v${VERSION}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "tag_name=KOBUDS-5.2.1" >> "$GITHUB_OUTPUT"
-          echo "release_name=KOBUDS 5.2.1" >> "$GITHUB_OUTPUT"
+          echo "tag_name=KOBUDS-${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_name=KOBUDS ${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: APK artefact olarak yükle
         uses: actions/upload-artifact@v4
