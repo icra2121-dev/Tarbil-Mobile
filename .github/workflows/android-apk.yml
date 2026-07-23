@@ -35,12 +35,42 @@ jobs:
       - name: NPM paketlerini kur
         run: npm ci
 
-      - name: EXPO_TOKEN kontrol et
+      - name: Gerekli secret'ları doğrula
         run: |
-          if [ -z "${EXPO_TOKEN}" ]; then
-            echo "EXPO_TOKEN secret tanımlı değil."
+          required_vars=(
+            EXPO_TOKEN
+            EXPO_PUBLIC_SUPABASE_URL
+            EXPO_PUBLIC_SUPABASE_ANON_KEY
+            EXPO_PUBLIC_CBS_API_URL
+            EXPO_PUBLIC_CBS_API_KEY
+            EXPO_PUBLIC_KOBUKS_API_URL
+            EXPO_PUBLIC_KOBUKS_API_KEY
+          )
+
+          missing=0
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name}" ]; then
+              echo "Eksik secret: ${var_name}"
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            echo "Gerekli secret'lar boş veya tanımlı değil. Build durduruldu."
             exit 1
           fi
+
+      - name: EAS build için .env oluştur
+        run: |
+          cat > .env <<EOF
+          EXPO_PUBLIC_CBS_API_KEY=${EXPO_PUBLIC_CBS_API_KEY}
+          EXPO_PUBLIC_CBS_API_URL=${EXPO_PUBLIC_CBS_API_URL}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
+          EXPO_PUBLIC_KOBUKS_API_KEY=${EXPO_PUBLIC_KOBUKS_API_KEY}
+          EXPO_PUBLIC_KOBUKS_API_URL=${EXPO_PUBLIC_KOBUKS_API_URL}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+          EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+          EOF
 
       - name: EAS ile APK oluştur ve köke indir
         id: prepare
