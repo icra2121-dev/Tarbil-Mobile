@@ -13,7 +13,6 @@ jobs:
     permissions:
       contents: write
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_PUBLIC_CBS_API_KEY: ${{ secrets.EXPO_PUBLIC_CBS_API_KEY }}
       EXPO_PUBLIC_CBS_API_URL: ${{ secrets.EXPO_PUBLIC_CBS_API_URL }}
       EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
@@ -32,58 +31,47 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Java 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
       - name: NPM paketlerini kur
         run: npm ci
 
-      - name: Gerekli secret'ları doğrula
+      - name: Ortam değişkenlerini oluştur
         run: |
-          required_vars=(
-            EXPO_TOKEN
-            EXPO_PUBLIC_SUPABASE_URL
-            EXPO_PUBLIC_SUPABASE_ANON_KEY
-            EXPO_PUBLIC_CBS_API_URL
-            EXPO_PUBLIC_CBS_API_KEY
-            EXPO_PUBLIC_KOBUKS_API_URL
-            EXPO_PUBLIC_KOBUKS_API_KEY
-          )
+          {
+            echo "EXPO_PUBLIC_CBS_API_KEY=${EXPO_PUBLIC_CBS_API_KEY}"
+            echo "EXPO_PUBLIC_CBS_API_URL=${EXPO_PUBLIC_CBS_API_URL}"
+            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
+            echo "EXPO_PUBLIC_KOBUKS_API_KEY=${EXPO_PUBLIC_KOBUKS_API_KEY}"
+            echo "EXPO_PUBLIC_KOBUKS_API_URL=${EXPO_PUBLIC_KOBUKS_API_URL}"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}"
+            echo "EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}"
+          } > .env
 
-          missing=0
-          for var_name in "${required_vars[@]}"; do
-            if [ -z "${!var_name}" ]; then
-              echo "Eksik secret: ${var_name}"
-              missing=1
-            fi
-          done
+      - name: Gradle çalıştırma izni ver
+        run: chmod +x android/gradlew
 
-          if [ "${missing}" -ne 0 ]; then
-            echo "Gerekli secret'lar boş veya tanımlı değil. Build durduruldu."
-            exit 1
-          fi
+      - name: Eski Android çıktısını temizle
+        working-directory: android
+        run: ./gradlew clean
 
-      - name: EAS build için .env oluştur
-        run: |
-          cat > .env <<EOF
-          EXPO_PUBLIC_CBS_API_KEY=${EXPO_PUBLIC_CBS_API_KEY}
-          EXPO_PUBLIC_CBS_API_URL=${EXPO_PUBLIC_CBS_API_URL}
-          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
-          EXPO_PUBLIC_KOBUKS_API_KEY=${EXPO_PUBLIC_KOBUKS_API_KEY}
-          EXPO_PUBLIC_KOBUKS_API_URL=${EXPO_PUBLIC_KOBUKS_API_URL}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
-          EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
-          EOF
+      - name: Release APK oluştur
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
 
-      - name: EAS ile APK oluştur ve köke indir
+      - name: APK dosyasını köke al
         id: prepare
         run: |
-          BUILD_JSON=$(npx eas build --platform android --profile preview --non-interactive --wait --json)
-          echo "$BUILD_JSON" > /tmp/eas-build.json
-          BUILD_URL=$(node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('/tmp/eas-build.json','utf8'));const build=Array.isArray(data)?data[0]:data;const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl;if(!url){console.error('Build URL bulunamadı');process.exit(1);}console.log(url);")
-          APP_VERSION=$(node -p "require('./package.json').version")
-          APK_NAME="KOBUDS-v${APP_VERSION}-${GITHUB_RUN_NUMBER}.apk"
-          curl -L "$BUILD_URL" -o "$APK_NAME"
+          APK_NAME="KOBUDS-v5.2.1.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "tag_name=android-apk-v${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "release_name=KOBUDS Android APK v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" >> "$GITHUB_OUTPUT"
+          echo "tag_name=KOBUDS-5.2.1" >> "$GITHUB_OUTPUT"
+          echo "release_name=KOBUDS 5.2.1" >> "$GITHUB_OUTPUT"
 
       - name: APK artefact olarak yükle
         uses: actions/upload-artifact@v4
