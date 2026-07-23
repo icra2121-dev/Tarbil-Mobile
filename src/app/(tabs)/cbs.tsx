@@ -49,7 +49,7 @@ async function cacheUnits(units: CbsUnit[]) {
 
 function waitForTimeout(ms: number) {
   return new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error("CBS_TIMEOUT")), ms);
+    setTimeout(() => reject(new Error(`CBS_LOAD_TIMEOUT:${ms}`)), ms);
   });
 }
 
@@ -79,6 +79,7 @@ function CBSContent() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [loadIssue, setLoadIssue] = useState<"timeout" | "error" | null>(null);
   const [showParcels, setShowParcels] = useState(true);
   const [showGreenhouses, setShowGreenhouses] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
@@ -198,14 +199,17 @@ function CBSContent() {
       setUnits(nextUnits);
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
+      setLoadIssue(null);
       await cacheUnits(nextUnits);
-    } catch {
+    } catch (error: any) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
+      const timeout = String(error?.message || "").includes("CBS_LOAD_TIMEOUT");
 
       setUnits(fallback);
       setSelectedId((current) => (current && fallback.some((unit) => unit.id === current) ? current : null));
       setOffline(true);
+      setLoadIssue(timeout ? "timeout" : "error");
     } finally {
       setLoading(false);
     }
@@ -452,7 +456,11 @@ function CBSContent() {
 
       {offline ? (
         <View style={styles.warning}>
-          <Text style={styles.warningText}>Çevrimdışı kayıtlar gösteriliyor. Bağlantı gelince CBS verileri yenilenir.</Text>
+          <Text style={styles.warningText}>
+            {loadIssue === "timeout"
+              ? "CBS verisi zamanında alınamadı. Önbellekteki kayıtlar gösteriliyor."
+              : "Çevrimdışı kayıtlar gösteriliyor. Bağlantı gelince CBS verileri yenilenir."}
+          </Text>
         </View>
       ) : null}
 
