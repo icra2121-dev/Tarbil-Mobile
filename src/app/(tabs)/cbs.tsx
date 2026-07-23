@@ -49,7 +49,8 @@ async function loadCachedUnits() {
 
     const parsed = JSON.parse(cached);
     return Array.isArray(parsed) ? (parsed as CbsUnit[]) : null;
-  } catch {
+  } catch (error) {
+    console.warn("CBS cache read failed:", error);
     return null;
   }
 }
@@ -219,7 +220,9 @@ function CBSContent() {
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
       setLoadIssue(null);
-      await cacheUnits(nextUnits).catch(() => undefined);
+      await cacheUnits(nextUnits).catch((error) => {
+        console.warn("CBS cache write failed:", error);
+      });
     } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
