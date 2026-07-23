@@ -50,7 +50,7 @@ async function loadCachedUnits() {
     const parsed = JSON.parse(cached);
     return Array.isArray(parsed) ? (parsed as CbsUnit[]) : null;
   } catch (error) {
-    console.warn("CBS cache read failed:", error);
+    console.warn("CBS cache read failed, will fetch fresh data:", error);
     return null;
   }
 }
@@ -148,9 +148,20 @@ function CBSContent() {
 
   const safeStaffLocations = useMemo(
     () =>
-      staffLocations.filter(
-        (staff) => Number.isFinite(Number(staff.latitude)) && Number.isFinite(Number(staff.longitude)),
-      ),
+      staffLocations.reduce<(LiveFieldLocation & { latitudeNumber: number; longitudeNumber: number })[]>((list, staff) => {
+        const latitudeNumber = Number(staff.latitude);
+        const longitudeNumber = Number(staff.longitude);
+
+        if (Number.isFinite(latitudeNumber) && Number.isFinite(longitudeNumber)) {
+          list.push({
+            ...staff,
+            latitudeNumber,
+            longitudeNumber,
+          });
+        }
+
+        return list;
+      }, []),
     [staffLocations],
   );
 
@@ -221,7 +232,7 @@ function CBSContent() {
       setOffline(false);
       setLoadIssue(null);
       await cacheUnits(nextUnits).catch((error) => {
-        console.warn("CBS cache write failed:", error);
+        console.warn("CBS cache write failed (non-fatal):", error);
       });
     } catch (error: unknown) {
       const cached = await loadCachedUnits();
@@ -585,8 +596,8 @@ function CBSContent() {
                 <Marker
                   key={String(staff.user_id)}
                   coordinate={{
-                    latitude: Number(staff.latitude),
-                    longitude: Number(staff.longitude),
+                    latitude: staff.latitudeNumber,
+                    longitude: staff.longitudeNumber,
                   }}
                   anchor={{ x: 0.5, y: 0.5 }}
                 >
