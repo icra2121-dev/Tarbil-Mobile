@@ -56,12 +56,7 @@ async function loadCachedUnits() {
 }
 
 async function cacheUnits(units: CbsUnit[]) {
-  try {
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
-  } catch (error) {
-    console.warn("CBS cache write failed at storage layer:", error);
-    throw error;
-  }
+  await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
 }
 
 function createTimeoutRejection(ms: number) {
@@ -239,7 +234,9 @@ function CBSContent() {
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
       setLoadIssue(null);
-      await cacheUnits(nextUnits).catch(() => undefined);
+      await cacheUnits(nextUnits).catch((error) => {
+        console.warn("CBS cache write failed (non-fatal):", error);
+      });
     } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
