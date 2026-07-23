@@ -1,16 +1,26 @@
-name: Android APK Oluştur
+name: Android APK Oluştur ve Release Et
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - main
 
 jobs:
   build-android:
-    name: KOBUDS Android APK
+    name: KOBUDS Android APK Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_CBS_API_KEY: ${{ secrets.EXPO_PUBLIC_CBS_API_KEY }}
+      EXPO_PUBLIC_CBS_API_URL: ${{ secrets.EXPO_PUBLIC_CBS_API_URL }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      EXPO_PUBLIC_KOBUKS_API_KEY: ${{ secrets.EXPO_PUBLIC_KOBUKS_API_KEY }}
+      EXPO_PUBLIC_KOBUKS_API_URL: ${{ secrets.EXPO_PUBLIC_KOBUKS_API_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
 
     steps:
       - name: Projeyi indir
@@ -22,47 +32,41 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Java 17 kur
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-
       - name: NPM paketlerini kur
         run: npm ci
 
-      - name: Ortam değişkenlerini oluştur
+      - name: EXPO_TOKEN kontrol et
         run: |
-          echo "EXPO_PUBLIC_CBS_API_KEY=${{ secrets.EXPO_PUBLIC_CBS_API_KEY }}" >> .env
-          echo "EXPO_PUBLIC_CBS_API_URL=${{ secrets.EXPO_PUBLIC_CBS_API_URL }}" >> .env
-          echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> .env
-          echo "EXPO_PUBLIC_KOBUKS_API_KEY=${{ secrets.EXPO_PUBLIC_KOBUKS_API_KEY }}" >> .env
-          echo "EXPO_PUBLIC_KOBUKS_API_URL=${{ secrets.EXPO_PUBLIC_KOBUKS_API_URL }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> .env
+          if [ -z "${EXPO_TOKEN}" ]; then
+            echo "EXPO_TOKEN secret tanımlı değil."
+            exit 1
+          fi
 
-      - name: Gradle çalıştırma izni ver
-        run: chmod +x android/gradlew
-
-      - name: Eski Android çıktısını temizle
-        working-directory: android
-        run: ./gradlew clean
-
-      - name: Release APK oluştur
-        working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: APK dosyasını yeniden adlandır
+      - name: EAS ile APK oluştur ve köke indir
+        id: prepare
         run: |
-          mkdir -p apk-output
-          cp android/app/build/outputs/apk/release/app-release.apk \
-             apk-output/KOBUDS-v4.0.2.apk
+          BUILD_JSON=$(npx eas build --platform android --profile preview --non-interactive --wait --json)
+          echo "$BUILD_JSON" > /tmp/eas-build.json
+          BUILD_URL=$(node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('/tmp/eas-build.json','utf8'));const build=Array.isArray(data)?data[0]:data;const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl;if(!url){console.error('Build URL bulunamadı');process.exit(1);}console.log(url);")
+          APP_VERSION=$(node -p "require('./package.json').version")
+          APK_NAME="KOBUDS-v${APP_VERSION}-${GITHUB_RUN_NUMBER}.apk"
+          curl -L "$BUILD_URL" -o "$APK_NAME"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag_name=android-apk-v${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "release_name=KOBUDS Android APK v${APP_VERSION} (#${GITHUB_RUN_NUMBER})" >> "$GITHUB_OUTPUT"
 
-      - name: APK dosyasını GitHub'a yükle
+      - name: APK artefact olarak yükle
         uses: actions/upload-artifact@v4
         with:
-          name: KOBUDS-v4.0.2-APK
-          path: apk-output/KOBUDS-v4.0.2.apk
+          name: ${{ steps.prepare.outputs.apk_name }}
+          path: ${{ steps.prepare.outputs.apk_name }}
           retention-days: 30
           if-no-files-found: error
+
+      - name: GitHub Release oluştur
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prepare.outputs.tag_name }}
+          name: ${{ steps.prepare.outputs.release_name }}
+          files: ${{ steps.prepare.outputs.apk_name }}
+          generate_release_notes: true
