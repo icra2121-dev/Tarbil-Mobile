@@ -208,7 +208,7 @@ function CBSContent() {
       setOffline(false);
       setLoadIssue(null);
       await cacheUnits(nextUnits);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
       const timeout = error instanceof CbsLoadTimeoutError;
