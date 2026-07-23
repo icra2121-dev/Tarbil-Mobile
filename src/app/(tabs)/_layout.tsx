@@ -41,7 +41,7 @@ export default function TabsLayout() {
         name="cbs"
         options={{
           title: "CBS",
-          href: profile ? "/cbs" : null,
+          href: "/cbs",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="map-marker-radius-outline" color={color} size={size} />
           ),
@@ -63,7 +63,7 @@ export default function TabsLayout() {
         name="reports"
         options={{
           title: "Rapor",
-          href: profile ? "/reports" : null,
+          href: "/reports",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="file-document-outline" color={color} size={size} />
           ),

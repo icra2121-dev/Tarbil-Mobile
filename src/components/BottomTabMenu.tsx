@@ -54,10 +54,6 @@ export function BottomTabMenu() {
     [management],
   );
 
-  if (profile === null || profile === undefined) {
-    return null;
-  }
-
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {tabs.map((item) => {

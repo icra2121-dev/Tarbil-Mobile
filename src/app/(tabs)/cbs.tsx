@@ -28,11 +28,19 @@ import { canUseManagementScreens, getMyProfile } from "../../services/profile";
 import { getLiveFieldLocations, type LiveFieldLocation } from "../../services/tracking";
 
 const CACHE_KEY = "tarbil:cbs-units:v3";
+const LOAD_TIMEOUT_MS = 15000;
 
 type UserMapLocation = {
   latitude: number;
   longitude: number;
 };
+
+class CbsLoadTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`CBS_LOAD_TIMEOUT:${ms}`);
+    this.name = "CbsLoadTimeoutError";
+  }
+}
 
 async function loadCachedUnits() {
   const cached = await AsyncStorage.getItem(CACHE_KEY);
@@ -44,6 +52,12 @@ async function loadCachedUnits() {
 
 async function cacheUnits(units: CbsUnit[]) {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
+}
+
+function createTimeoutRejection(ms: number) {
+  return new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new CbsLoadTimeoutError(ms)), ms);
+  });
 }
 
 function getHeadingDegree(heading: Location.LocationHeadingObject | null) {
@@ -72,6 +86,7 @@ function CBSContent() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [loadIssue, setLoadIssue] = useState<"timeout" | "error" | null>(null);
   const [showParcels, setShowParcels] = useState(true);
   const [showGreenhouses, setShowGreenhouses] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
@@ -186,60 +201,38 @@ function CBSContent() {
     setLoading(true);
 
     try {
-      const nextUnits = await loadCbsUnits();
+      const nextUnits = await Promise.race([loadCbsUnits(), createTimeoutRejection(LOAD_TIMEOUT_MS)]);
 
       setUnits(nextUnits);
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
+      setLoadIssue(null);
       await cacheUnits(nextUnits);
-    } catch {
+    } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
+      const timeout = error instanceof CbsLoadTimeoutError;
 
       setUnits(fallback);
       setSelectedId((current) => (current && fallback.some((unit) => unit.id === current) ? current : null));
       setOffline(true);
+      setLoadIssue(timeout ? "timeout" : "error");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    loadCbsUnits()
-      .then(async (nextUnits) => {
-        if (!active) {
-          return;
-        }
-
-        setUnits(nextUnits);
-        setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
-        setOffline(false);
-        await cacheUnits(nextUnits);
-      })
-      .catch(async () => {
-        const cached = await loadCachedUnits();
-        const fallback = cached?.length ? cached : [];
-
-        if (!active) {
-          return;
-        }
-
-        setUnits(fallback);
-        setSelectedId((current) => (current && fallback.some((unit) => unit.id === current) ? current : null));
-        setOffline(true);
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    // `loadUnits` sets local state immediately; defer one tick to satisfy
+    // react-hooks/set-state-in-effect lint rule and avoid sync state updates in effect body.
+    const timer = setTimeout(() => {
+      void loadUnits();
+    }, 0);
 
     return () => {
-      active = false;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [loadUnits]);
 
   useEffect(() => {
     getMyProfile()
@@ -472,7 +465,11 @@ function CBSContent() {
 
       {offline ? (
         <View style={styles.warning}>
-          <Text style={styles.warningText}>Çevrimdışı kayıtlar gösteriliyor. Bağlantı gelince CBS verileri yenilenir.</Text>
+          <Text style={styles.warningText}>
+            {loadIssue === "timeout"
+              ? "CBS verisi zamanında alınamadı. Önbellekteki kayıtlar gösteriliyor."
+              : "Çevrimdışı kayıtlar gösteriliyor. Bağlantı gelince CBS verileri yenilenir."}
+          </Text>
         </View>
       ) : null}
 
