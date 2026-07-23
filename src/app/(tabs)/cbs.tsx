@@ -28,6 +28,7 @@ import { canUseManagementScreens, getMyProfile } from "../../services/profile";
 import { getLiveFieldLocations, type LiveFieldLocation } from "../../services/tracking";
 
 const CACHE_KEY = "tarbil:cbs-units:v3";
+const LOAD_TIMEOUT_MS = 15000;
 
 type UserMapLocation = {
   latitude: number;
@@ -44,6 +45,12 @@ async function loadCachedUnits() {
 
 async function cacheUnits(units: CbsUnit[]) {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
+}
+
+function waitForTimeout(ms: number) {
+  return new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("CBS_TIMEOUT")), ms);
+  });
 }
 
 function getHeadingDegree(heading: Location.LocationHeadingObject | null) {
@@ -186,7 +193,7 @@ function CBSContent() {
     setLoading(true);
 
     try {
-      const nextUnits = await loadCbsUnits();
+      const nextUnits = await Promise.race([loadCbsUnits(), waitForTimeout(LOAD_TIMEOUT_MS)]);
 
       setUnits(nextUnits);
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
@@ -205,41 +212,14 @@ function CBSContent() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    loadCbsUnits()
-      .then(async (nextUnits) => {
-        if (!active) {
-          return;
-        }
-
-        setUnits(nextUnits);
-        setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
-        setOffline(false);
-        await cacheUnits(nextUnits);
-      })
-      .catch(async () => {
-        const cached = await loadCachedUnits();
-        const fallback = cached?.length ? cached : [];
-
-        if (!active) {
-          return;
-        }
-
-        setUnits(fallback);
-        setSelectedId((current) => (current && fallback.some((unit) => unit.id === current) ? current : null));
-        setOffline(true);
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    const timer = setTimeout(() => {
+      void loadUnits();
+    }, 0);
 
     return () => {
-      active = false;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [loadUnits]);
 
   useEffect(() => {
     getMyProfile()
