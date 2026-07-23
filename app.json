@@ -2,7 +2,7 @@
   "expo": {
     "name": "KOBÜDS 4.0",
     "slug": "tarbil-mobile",
-    "version": "4.0.2",
+    "version": "5.2.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
