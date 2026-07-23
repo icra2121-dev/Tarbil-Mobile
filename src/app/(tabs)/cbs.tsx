@@ -223,15 +223,14 @@ function CBSContent() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    queueMicrotask(() => {
-      if (active) {
-        void loadUnits();
-      }
-    });
+    // `loadUnits` sets local state immediately; defer one tick to satisfy
+    // react-hooks/set-state-in-effect lint rule and avoid sync state updates in effect body.
+    const timer = setTimeout(() => {
+      void loadUnits();
+    }, 0);
 
     return () => {
-      active = false;
+      clearTimeout(timer);
     };
   }, [loadUnits]);
 
