@@ -56,7 +56,12 @@ async function loadCachedUnits() {
 }
 
 async function cacheUnits(units: CbsUnit[]) {
-  await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
+  } catch (error) {
+    console.warn("CBS cache write failed at storage layer:", error);
+    throw error;
+  }
 }
 
 function createTimeoutRejection(ms: number) {
@@ -148,20 +153,23 @@ function CBSContent() {
 
   const safeStaffLocations = useMemo(
     () =>
-      staffLocations.reduce<(LiveFieldLocation & { latitudeNumber: number; longitudeNumber: number })[]>((list, staff) => {
+      staffLocations.reduce<(LiveFieldLocation & { latitudeNumber: number; longitudeNumber: number })[]>(
+        (validLocations, staff) => {
         const latitudeNumber = Number(staff.latitude);
         const longitudeNumber = Number(staff.longitude);
 
         if (Number.isFinite(latitudeNumber) && Number.isFinite(longitudeNumber)) {
-          list.push({
+          validLocations.push({
             ...staff,
             latitudeNumber,
             longitudeNumber,
           });
         }
 
-        return list;
-      }, []),
+        return validLocations;
+        },
+        [],
+      ),
     [staffLocations],
   );
 
@@ -231,9 +239,7 @@ function CBSContent() {
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
       setLoadIssue(null);
-      await cacheUnits(nextUnits).catch((error) => {
-        console.warn("CBS cache write failed (non-fatal):", error);
-      });
+      await cacheUnits(nextUnits).catch(() => undefined);
     } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
