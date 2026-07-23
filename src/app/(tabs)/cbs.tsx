@@ -35,6 +35,13 @@ type UserMapLocation = {
   longitude: number;
 };
 
+class CbsLoadTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`CBS_LOAD_TIMEOUT:${ms}`);
+    this.name = "CbsLoadTimeoutError";
+  }
+}
+
 async function loadCachedUnits() {
   const cached = await AsyncStorage.getItem(CACHE_KEY);
   if (!cached) return null;
@@ -47,9 +54,9 @@ async function cacheUnits(units: CbsUnit[]) {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(units));
 }
 
-function waitForTimeout(ms: number) {
+function createTimeoutRejection(ms: number) {
   return new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`CBS_LOAD_TIMEOUT:${ms}`)), ms);
+    setTimeout(() => reject(new CbsLoadTimeoutError(ms)), ms);
   });
 }
 
@@ -194,7 +201,7 @@ function CBSContent() {
     setLoading(true);
 
     try {
-      const nextUnits = await Promise.race([loadCbsUnits(), waitForTimeout(LOAD_TIMEOUT_MS)]);
+      const nextUnits = await Promise.race([loadCbsUnits(), createTimeoutRejection(LOAD_TIMEOUT_MS)]);
 
       setUnits(nextUnits);
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
@@ -204,7 +211,7 @@ function CBSContent() {
     } catch (error: any) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
-      const timeout = String(error?.message || "").includes("CBS_LOAD_TIMEOUT");
+      const timeout = error instanceof CbsLoadTimeoutError;
 
       setUnits(fallback);
       setSelectedId((current) => (current && fallback.some((unit) => unit.id === current) ? current : null));
@@ -216,12 +223,15 @@ function CBSContent() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadUnits();
-    }, 0);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) {
+        void loadUnits();
+      }
+    });
 
     return () => {
-      clearTimeout(timer);
+      active = false;
     };
   }, [loadUnits]);
 
