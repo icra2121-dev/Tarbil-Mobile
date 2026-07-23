@@ -43,11 +43,15 @@ class CbsLoadTimeoutError extends Error {
 }
 
 async function loadCachedUnits() {
-  const cached = await AsyncStorage.getItem(CACHE_KEY);
-  if (!cached) return null;
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
 
-  const parsed = JSON.parse(cached);
-  return Array.isArray(parsed) ? (parsed as CbsUnit[]) : null;
+    const parsed = JSON.parse(cached);
+    return Array.isArray(parsed) ? (parsed as CbsUnit[]) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function cacheUnits(units: CbsUnit[]) {
@@ -141,6 +145,14 @@ function CBSContent() {
       .slice(0, 8);
   }, [filteredUnits, nearbyMode, selectedId, units]);
 
+  const safeStaffLocations = useMemo(
+    () =>
+      staffLocations.filter(
+        (staff) => Number.isFinite(Number(staff.latitude)) && Number.isFinite(Number(staff.longitude)),
+      ),
+    [staffLocations],
+  );
+
   function isAssignedUnit(unit: CbsUnit) {
     if (!assignedTaskId) {
       return false;
@@ -207,7 +219,7 @@ function CBSContent() {
       setSelectedId((current) => (current && nextUnits.some((unit) => unit.id === current) ? current : null));
       setOffline(false);
       setLoadIssue(null);
-      await cacheUnits(nextUnits);
+      await cacheUnits(nextUnits).catch(() => undefined);
     } catch (error: unknown) {
       const cached = await loadCachedUnits();
       const fallback = cached?.length ? cached : [];
@@ -566,7 +578,7 @@ function CBSContent() {
             </Marker>
           ) : null}
           {management && showStaffLocations
-            ? staffLocations.map((staff) => (
+            ? safeStaffLocations.map((staff) => (
                 <Marker
                   key={String(staff.user_id)}
                   coordinate={{
@@ -653,7 +665,7 @@ function CBSContent() {
                   color="#a855f7"
                   icon="account-hard-hat-outline"
                   title="Sahadaki Personel"
-                  subtitle={`${staffLocations.length} aktif konum`}
+                  subtitle={`${safeStaffLocations.length} aktif konum`}
                   onPress={() => setShowStaffLocations((value) => !value)}
                 />
               ) : null}
